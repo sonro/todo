@@ -20,6 +20,13 @@ typedef enum Mode_t {
     List, Append, Done, Fail
 } Mode_t;
 
+/* typedef struct item { */
+/*     char *description; */
+/*     int length; */
+/*     int done; */
+/*     struct item *next; */  
+/* } Item_t; */
+
 int append_item(const char *file, const char *item);
 int list_items(const char *file);
 void print_item(const char *item, int state);

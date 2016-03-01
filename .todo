@@ -1,4 +1,5 @@
-1Write list_items() function.
-1Make list items save item state and skip over the number.
-0Mark tast as done
-0Say Hi to Stephanie
+Make a todo list work
+Please god work
+Bathtime
+use valgrind
+--leak-check-yes

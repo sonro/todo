@@ -6,6 +6,7 @@
  **********************************/
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #define FILEPATH ".todo"
 
@@ -20,16 +21,24 @@ typedef enum Mode_t {
     List, Append, Done, Fail
 } Mode_t;
 
-/* typedef struct item { */
-/*     char *description; */
-/*     int length; */
-/*     int done; */
-/*     struct item *next; */  
-/* } Item_t; */
+typedef struct item_t {
+    char *description;
+    int length;
+    int done;
+    struct item_t *next;  
+} item_t;
 
-int append_item(const char *file, const char *item);
-int list_items(const char *file);
-void print_item(const char *item, int state);
+
+
+item_t *load_list(const char *file);
+item_t *readline(FILE *fp);
+void save_list(const char *file, item_t **head);
+void list_items(item_t *head);
+item_t *new_item(const char *description, int des_len, int done);
+void append_item(item_t *head, const char *item);
+
+/* int list_items(const char *file); */
+/* void print_item(const char *item, int state); */
 
 int main(int argc, const char *argv[])
 {
@@ -39,14 +48,14 @@ int main(int argc, const char *argv[])
         :   argc == 3 ? Done
         :               Fail;
         
-    /* int rv; */
+    item_t *head = load_list(FILEPATH);
 
     switch (mode) {
         case List:
-            list_items(FILEPATH);
+            list_items(head);
             break;
         case Append:
-            append_item(FILEPATH, argv[1]);
+            append_item(head, argv[1]);
             break;
         case Done:
             break;
@@ -54,71 +63,123 @@ int main(int argc, const char *argv[])
             break;
     }
 
+    save_list(FILEPATH, &head);
+
     return 0;
 }
 
-int append_item(const char *file, const char *item)
-{
-    FILE *fp = fopen(file, "a");
-    if (!fp) {
-        printf("file error");
-        return -1;
-    }
-
-    fprintf(fp, "0%s\n", item);
-
-    fclose(fp);
-
-    return 1;
-}
-
-int list_items(const char *file)
+item_t *load_list(const char *file)
 {
     FILE *fp = fopen(file, "r");
     if (!fp) {
-        printf("No items todo at the moment\n");
-        return -1;
+        fp = fopen(file, "a");
+        return NULL;
     }
 
-    int reading = 1;
+    item_t *head = readline(fp);
+    item_t *ptr = head;
 
+    while (ptr) {
+        ptr->next = readline(fp);
+        ptr = ptr->next;
+    }
+
+    fclose(fp);
+    return head;
+}
+
+item_t *readline(FILE *fp)
+{
+    int done = 0;
+    int i = 0;
     int ch;
-    int state;
     char buffer[BUFSIZ];
-    int i = -1;
 
-    while (reading) {
-        ch = fgetc(fp);
-
-        if (ch == EOF) {
-            buffer[i] = '\0';
-            if (i > -1) {
-                print_item(buffer, state);
-            }
-            reading = 0;
-        }
-        else if (ch == '\n') {
-            buffer[i] = '\0';
-            print_item(buffer, state);
-            i = -1;
-        }
-        else if (i == -1) {
-            state = ch - '0'; 
-            i++;
+    while ((ch = fgetc(fp)) != EOF && ch != '\n') {
+        if (i == 0 && ch == '!') {
+           done = 1;
+           i++;
         }
         else {
             buffer[i++] = ch;
         }
     }
 
-    fclose(fp);
-    return 0;
+    if (ch == EOF) {
+        return NULL;
+    }
+    
+    buffer[i++] = '\0';
+    
+    return new_item(buffer, i, done);
 }
 
-void print_item(const char *item, int state)
+void save_list(const char *file, item_t **head)
 {
-    printf("[");
-    printf(state ? DONE: TODO);
-    printf("] ");
-    printf("%s\n", item);
+    FILE *fp = fopen(file, "w");
+    if (!fp) {
+        printf("file error");
+        return;
+    }
+
+    item_t *ptr = *head;
+    item_t *prev = ptr;
+
+    while (ptr) {
+        if (ptr->done) {
+            fprintf(fp, "!");
+        }
+
+        fprintf(fp, "%s\n", ptr->description); 
+        free(ptr->description);
+        ptr->description = NULL;
+
+        prev = ptr;
+        ptr = ptr->next;
+        free(prev);
+    }
+    fclose(fp);
+    *head = NULL;
+}
+
+void append_item(item_t *head, const char *item)
+{
+    item_t *ptr = head;
+
+    while (ptr->next) {
+        ptr = ptr->next;
+    }
+
+    int i = 0;
+    while (item[i++] != '\0');
+
+    ptr->next = new_item(item, i, 0);
+}
+
+item_t *new_item(const char *description, int des_len, int done)
+{
+    item_t *item = malloc(sizeof(item_t));
+
+    item->next = NULL;
+    item->done = done;
+    item->description = malloc(des_len+1);
+
+    for (int i = 0; i <= des_len; i++) {
+        item->description[i] = description[i];
+    }
+
+    return item;
+}
+
+void list_items(item_t *head)
+{
+    item_t *ptr = head;
+    while (ptr) {
+        printf("[");
+        printf(ptr->done ? DONE: TODO);
+        printf("] ");
+        printf("%s\n", ptr->description);
+
+        ptr = ptr->next;
+    }
 }
